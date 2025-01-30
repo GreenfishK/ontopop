@@ -1,0 +1,104 @@
+PREFIX orkgr: <http://orkg.org/orkg/resource/>
+PREFIX orkgc: <http://orkg.org/orkg/class/>
+PREFIX orkgp: <http://orkg.org/orkg/predicate/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+
+
+select 
+?researchField 
+?paper 
+?paperTitle
+?paperUrl 
+?contributionInstance
+?contributionLabel 
+?property
+?propertyName 
+(group_concat(DISTINCT ?propertyValue; separator=" | ") as ?propertyValues) 
+(group_concat(DISTINCT ?structuredPropertyValue; separator=" | ") as ?structuredPropertyValue) 
+(strlen(?structuredPropertyValue)!=0 as ?hasStructuredPropertyValue)
+?propertyDescription
+(group_concat(DISTINCT ?templatePropertyStr; separator=" | ") as ?templateProperties) 
+(max(?templatePropertyUsed) as ?templatePropertyUsed)
+{
+    select
+    ?researchField 
+    ?paper 
+    ?paperTitle 
+    ?paperUrl 
+    ?contributionInstance
+    ?contributionLabel 
+    ?property
+    ?propertyName 
+    ?propertyValue
+    ?structuredPropertyValue
+    ?propertyDescription
+    ?templatePropertyStr
+    (if(str(?property) = str(?templateProperty), 1, 0) as ?templatePropertyUsed)
+    {
+        select 
+        ?researchField 
+        ?paper 
+        ?paperTitle 
+        ?paperUrl 
+        ?contributionInstance
+        ?contributionLabel 
+        ?property
+        ?propertyName
+        (if(bound(?propertyValueLabel),?propertyValueLabel,?propertyValueAux) as ?propertyValue) 
+        (if(bound(?structuredPropertyValueLabel),?structuredPropertyValueLabel,?structuredPropertyValueAux) as ?structuredPropertyValue) 
+        ?propertyDescription
+        ?templateProperty
+        (concat(str(?template), " - ", str(?templateLabel), ": ", str(?templatePropertyLabel)) as ?templatePropertyStr)
+        {
+            ?paper rdf:type orkgc:Paper ;
+            rdfs:label ?paperTitle ;
+            orkgp:url ?paperUrl ;
+            orkgp:P30 ?researchFieldProperty ;
+            orkgp:P31 ?contributionInstance .
+            optional{?paper orkgp:P29 ?publicationYear .}
+
+                ?researchFieldProperty rdfs:label ?researchField .
+            
+                ?contributionInstance rdf:type ?templateClass .
+                ?contributionInstance ?property ?propertyValueAux.
+                ?contributionInstance rdfs:label ?contributionLabel .
+            
+                    ?template rdf:type orkgc:NodeShape ;
+                    rdfs:label ?templateLabel ;
+                    orkgp:sh:targetClass ?templateClass ;
+                    orkgp:sh:property / orkgp:sh:path ?templateProperty .
+                    ?templateProperty rdfs:label ?templatePropertyLabel .
+            
+                    optional {
+                        ?propertyValueAux rdfs:label ?propertyValueLabel .
+                    }
+                    optional {
+                        ?propertyValueAux ?structuredProperty ?structuredPropertyValueAux .
+                        ?structuredProperty rdf:type orkgc:Predicate .
+                        optional {
+                            ?structuredPropertyValueAux rdfs:label ?structuredPropertyValueLabel .
+                        }
+                    }
+                    ?property a orkgc:Predicate .
+                    ?property rdfs:label ?propertyName .
+                    optional{
+                        ?property orkgp:description ?propertyDescription .
+                    }
+
+
+            #filter(str(?paperTitle) != "" && str(?paperUrl) != "")
+
+        }
+        order by ?paper ?propertyName
+    } 
+} group by 
+?researchField 
+?paper 
+?paperTitle 
+?paperUrl 
+?contributionInstance
+?contributionLabel 
+?property
+?propertyName 
+?propertyDescription

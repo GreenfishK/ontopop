@@ -1,0 +1,30 @@
+PREFIX orkgc: <http://orkg.org/orkg/class/>
+PREFIX orkgp: <http://orkg.org/orkg/predicate/>
+PREFIX orkgr: <http://orkg.org/orkg/resource/>
+
+Select 
+?template 
+(avg(xsd:float(?cntTemplateUsedProperty) / xsd:float(?cntTemplateProperty)) as ?templateUtilizationRatio)
+?cntTemplateProperty {
+  Select ?template 
+         ?templateInstance 
+         (count(?templateUsedProperty) as ?cntTemplateUsedProperty) 
+         (count(?templateProperty) as ?cntTemplateProperty) {
+    SELECT distinct ?template ?templateInstance ?templateProperty ?templateUsedProperty {
+      ?template rdf:type orkgc:NodeShape ;
+                rdfs:label ?templateLabel ;
+                orkgp:sh:targetClass ?templateClass ;
+                <http://orkg.org/orkg/predicate/sh:property> ?propertyShape .
+      ?propertyShape <http://orkg.org/orkg/predicate/sh:path> ?templateProperty .
+      ?templateInstance rdf:type ?templateClass .
+
+      OPTIONAL{
+        ?templateInstance ?templateUsedProperty ?templateInstancePropertyValue .
+        ?templateUsedProperty rdf:type orkgc:Predicate .
+        filter(?templateProperty = ?templateUsedProperty)                           
+      }
+    } 
+  } 
+  group by ?template ?templateInstance 
+}  
+group by ?template ?cntTemplateProperty

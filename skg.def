@@ -1,0 +1,103 @@
+Bootstrap: docker
+From: maven:3.9.1-eclipse-temurin-17
+Stage: install_rmlmapper
+
+%files
+    src/tools/rmlmapper-java /home/ontopop/tools/rmlmapper
+    src/tools/jq /home/ontopop/tools/jq
+    src/tools/semopenalex /home/ontopop/tools/semopenalex
+    src/tools/RDFValidator /home/ontopop/tools/RDFValidator
+    # TODO: install jedai
+    # TODO: install openreview_scraper
+
+%post
+    # RML mapper
+    cd /home/ontopop/tools/rmlmapper && mvn install -DskipTests=true
+    mv /home/ontopop/tools/rmlmapper/target/rmlmapper-7.1.2-r*-all.jar /home/ontopop/tools
+
+
+
+Bootstrap: docker
+From: maven:3.9.1-eclipse-temurin-11
+Stage: install_rdf_validator
+
+%files from install_rmlmapper
+    /home/ontopop/tools/
+    # TODO: install jedai
+    # TODO: install openreview_scraper
+
+%post
+    # RML mapper
+    cd /home/ontopop/tools/RDFValidator && mvn clean compile assembly:single
+    mv /home/ontopop/tools/RDFValidator/target/rdfvalidator-1.0-jar-with-dependencies.jar /home/ontopop/tools
+
+
+
+Bootstrap: docker
+From: ontotext/graphdb:10.7.1
+Stage: install_db
+
+%files from install_rdf_validator   
+    /home/ontopop/tools/
+
+
+
+Bootstrap: docker
+From: eclipse-temurin:11.0.19_7-jdk
+Stage: install_java_11
+
+%files from install_db   
+    /home/ontopop/tools/ 
+    /opt/graphdb/ /home/ontopop/databases/graphdb/
+
+
+
+Bootstrap: docker
+From: eclipse-temurin:17.0.3_7-jdk
+Stage: install_java_17
+
+%files from install_db   
+    /home/ontopop/tools/ 
+    /opt/graphdb/ /home/ontopop/databases/graphdb/
+
+
+
+Bootstrap: docker
+From: python:3.10.13-bullseye
+Stage: intermediate
+
+%files from install_java_17
+    /home/ontopop/tools 
+    /home/ontopop/databases/graphdb 
+    /opt/java/ /opt/java/java17/ 
+
+%files from install_java_11
+    /opt/java/ /opt/java/java11/ 
+
+
+Bootstrap: docker
+From: python:3.10.13-bullseye
+Stage: final
+
+
+%files from intermediate
+    /home/ontopop/tools 
+    /home/ontopop/databases/graphdb 
+    /opt/java
+
+%files
+    requirements.txt /home/ontopop
+
+%post
+    # jq: Do not install in previous stage because otherwise you need to scrape all installation files from all over the place
+    cd /home/ontopop/tools/jq && git submodule update --init && autoreconf -i && ./configure && make -j8 && make check && make install
+
+    # Install requirements
+    cd /home/ontopop
+    pip cache purge 
+    pip install --no-cache-dir -r requirements.txt
+
+%environment
+    export JAVA_HOME=/opt/java/java17/openjdk
+    export PATH="/opt/java/java11/openjdk/bin:/opt/java/java17/openjdk/bin:${PATH}"
+    export PYTHONPATH=/home/ontopop/src

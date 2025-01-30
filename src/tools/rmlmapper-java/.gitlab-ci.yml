@@ -1,0 +1,139 @@
+stages:
+  - lint
+  - unittests
+  - mirror
+  - release
+  - deploy
+
+include:
+  # Make sure the CHANGELOG is always updated
+  - project: 'rml/util/ci-templates'
+    ref: main
+    file: 'CHANGELOG.gitlab-ci.yml'
+  # Push a Docker Image to Docker Hub on new tags
+  - project: 'rml/util/ci-templates'
+    ref: main
+    file: 'Docker-Hub.gitlab-ci.yml'
+  # Push a build to Maven Central on new tags
+  - project: 'rml/util/ci-templates'
+    ref: main
+    file: 'Maven-Central.gitlab-ci.yml'
+
+variables:
+  # This will suppress any download for dependencies and plugins or upload messages which would clutter the console log.
+  # `showDateTime` will show the passed time in milliseconds.
+  MAVEN_OPTS: "-Dhttps.protocols=TLSv1.2 -Dmaven.repo.local=$CI_PROJECT_DIR/.m2/repository -Dorg.slf4j.simpleLogger.log.org.apache.maven.cli.transfer.Slf4jMavenTransferListener=WARN -Dorg.slf4j.simpleLogger.showDateTime=true -Djava.awt.headless=true"
+  MAVEN_CLI_OPTS: "-s $CI_PROJECT_DIR/.m2/settings.xml --batch-mode --errors --fail-at-end --show-version -DinstallAtEnd=true -DdeployAtEnd=true"
+  # Postgres
+  POSTGRES_DB: postgres
+  POSTGRES_USER: postgres
+  POSTGRES_PASSWORD: "YourSTRONG!Passw0rd"
+  # SQLServer
+  ACCEPT_EULA: "Y"
+  SA_PASSWORD: "YourSTRONG!Passw0rd"
+  # https://hub.docker.com/r/alpine/git/tags
+  GIT_VERSION: v2.32.0
+
+cache:
+  key: ${CI_JOB_NAME}
+  paths:
+    - .m2/repository
+
+# Cancel pipeline if a newer pipeline is running
+default:
+  interruptible: true
+
+###############################
+#                             #
+#     Unittests               #
+#                             #
+###############################
+
+General:
+  stage: unittests
+  image:
+    name: maven:3-eclipse-temurin-17
+    pull_policy: if-not-present
+  services:
+    - name: docker:23.0.1-dind
+      # explicitly disable tls to avoid docker startup interruption
+      command: ["--tls=false"]
+  variables:
+    # Instruct Testcontainers to use the daemon of DinD.
+    DOCKER_HOST: "tcp://docker:2375"
+    # Instruct Docker not to start over TLS.
+    DOCKER_TLS_CERTDIR: ""
+    # Improve performance with overlayfs.
+    DOCKER_DRIVER: overlay2
+  script:
+    - 'mvn $MAVEN_CLI_OPTS -Dtest=$TEST test 2>&1 | tee $TEST.log'
+  artifacts:
+    when: always
+    paths:
+      - '$TEST.log'
+  parallel:
+    matrix:
+      - TEST: [ArgumentsTest, MapperCSVTest, MapperJSONTest, MapperMySQLTest, MapperPostgresR2RMLTest, MapperWoTTest, ArgumentsTestMySQLTest, MapperCSVWTest, MapperLDESTest, MapperODSTest, MapperOracleDBTest, MapperPostgresXMLTest, MapperXMLTest, CustomRMLFnOMapperCSVTest, MapperEXCELTest, MapperMappingFileURLTest, MapperSPARQLTest, MetadataTest, CustomRMLFnOMapperJSONTest, CustomRMLFnOMapperTest, MapperHTMLTest, MapperMySQLR2RMLTest, MapperPostgresCSVTest, MapperSQLServerTest, OptimizationsTest, R2RMLConverterTest, QuadTest, ReadmeTest, ReadmeFunctionTest, ConformerDetectionTest, MapperNewRMLCoreCSVTest, MapperNewRMLCoreJSONTest, MapperNewRMLCoreXMLTest, MapperNewRMLCoreMySQLTest, MapperNewRMLCorePostgresTest, MapperNewRMLIOSourceTest, MapperNewRMLIOTargetTest]
+  except:
+    - master
+    - development
+
+# Generate R2RML test report and attach it as a artifact.
+# Manual: make a MR to the rml.io website
+R2RML Test Report:
+  stage: deploy
+  image:
+    name: docker:latest
+    pull_policy: if-not-present
+  services:
+    - docker:23.0.1-dind
+  before_script:
+    # Dependencies
+    - apk add git python3 python3-dev py3-pip postgresql-dev postgresql libpq gcc musl-dev docker docker-compose java-jre-headless maven java-jdk
+
+    # Clone the repository via HTTPS inside a new directory
+    - git clone "https://github.com/kg-construct/r2rml-test-cases-support"
+
+    # Set the displayed user with the commits that are about to be made
+    - git config --global user.email "${GIT_USER_EMAIL:-$GITLAB_USER_EMAIL}"
+    - git config --global user.name "${GIT_USER_NAME:-$GITLAB_USER_NAME}"
+
+    # Show docker
+    - docker info
+  script:
+    # Variables
+    - R2RML_TAG_NAME=$(git tag -l "v*" --sort=-creatordate | head -n1 || echo "$CI_COMMIT_REF_NAME")
+    - (if [ "$R2RML_TAG_NAME" == "$CI_COMMIT_REF_NAME" ]; then echo "$CI_COMMIT_REF_NAME"; else R2RML_TAG_NAME=$(echo "$R2RML_TAG_NAME" | cut -c2-); fi)
+    - R2RML_TAG_NAME=$(echo "$R2RML_TAG_NAME" | tr -d '\n')
+    - TODAY=$(date +"%Y-%m-%d")
+
+    # Build RMLMapper jar
+    - mvn install -DskipTests=true
+
+    # Setup R2RML test cases configs
+    - cp data/r2rml-test-cases-config-postgresql.ini r2rml-test-cases-support/config-postgresql.ini
+    - cp data/r2rml-test-cases-config-mysql.ini r2rml-test-cases-support/config-mysql.ini
+    - cd r2rml-test-cases-support
+    - echo "Generating test report for release v${R2RML_TAG_NAME} on ${TODAY}"
+    - sed -i "s/VERSION/${R2RML_TAG_NAME}/" config-postgresql.ini
+    - sed -i "s/VERSION/${R2RML_TAG_NAME}/" config-mysql.ini
+    - sed -i "s/DATE/${TODAY}/" config-postgresql.ini
+    - sed -i "s/DATE/${TODAY}/" config-mysql.ini
+
+    # Install R2RML test cases dependencies
+    - python3 -m pip install requests 'rdflib==6.0.2' 'psycopg2-binary<3' 'mysql-connector-python<9' --break-system-packages
+
+    # Execute R2RML test cases
+    - HOST=docker python3 test.py config-postgresql.ini
+    - HOST=$(getent hosts docker | cut -f1 -d " ") python3 test.py config-mysql.ini # MySQL wants an IP address
+
+    - cd ..
+  # Run during merge requests and tags
+  except:
+    - development
+    - master
+  artifacts:
+    when: always
+    paths:
+      - $CI_PROJECT_DIR/r2rml-test-cases-support/results.ttl
+      - $CI_PROJECT_DIR/r2rml-test-cases-support/config-*.ini

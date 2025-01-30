@@ -1,0 +1,29 @@
+PREFIX orkgc: <http://orkg.org/orkg/class/>
+PREFIX orkgp: <http://orkg.org/orkg/predicate/>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+SELECT 
+?template
+?templateLabel
+(count(?templateInstance) as ?cntTemplateInstances) {
+    SELECT distinct 
+    ?template 
+    ?templateLabel 
+    ?templateInstance  {
+        {
+            SELECT distinct 
+            ?template 
+            ?templateLabel 
+            ?templateClass {
+                ?template rdf:type orkgc:NodeShape ;
+                          rdfs:label ?templateLabel ;
+                          orkgp:sh:targetClass ?templateClass .
+            }
+            group by ?template ?templateLabel ?templateClass
+        }
+        OPTIONAL{
+            ?templateInstance rdf:type ?templateClass .
+        }
+    } 
+} 
+group by ?template ?templateLabel

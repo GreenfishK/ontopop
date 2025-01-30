@@ -1,0 +1,2 @@
+The property values '{property_values}' are not found in the snippets. 
+Only use exact values from the snippets and return a corrected answer for these {missmatches_cnt} missmatched property values.

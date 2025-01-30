@@ -1,0 +1,5 @@
+src/utils/__pycache__
+src/ontopop/configs/tokens.cfg
+skg.sif
+.env
+slurm*

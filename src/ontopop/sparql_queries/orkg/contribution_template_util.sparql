@@ -1,0 +1,54 @@
+PREFIX orkgc: <http://orkg.org/orkg/class/>
+PREFIX orkgp: <http://orkg.org/orkg/predicate/>
+PREFIX rdf: <http://www.w3.org/1999/02/22-rdf-syntax-ns#>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+PREFIX orkgr: <http://orkg.org/orkg/resource/>
+SELECT 
+?template
+?templateLabel
+(count(distinct ?templateInstance) as ?cntTemplateInstances)
+(sum(?hasResearchProblem) as ?cntResearch_problem)
+(sum(?hasMaterial) as ?cntMaterial)
+(sum(?hasMethod) as ?cntMethod)
+(sum(?hasResult) as ?cntResult) 
+{
+    SELECT distinct 
+    ?template 
+    ?templateLabel 
+    ?templateInstance  
+    (if(bound(?research_problem),1,0) as ?hasResearchProblem)
+    (if(bound(?material),1,0) as ?hasMaterial)
+    (if(bound(?method),1,0) as ?hasMethod)
+    (if(bound(?result),1,0) as ?hasResult)
+    {
+        {
+            SELECT distinct 
+            ?template 
+            ?templateLabel 
+            ?templateClass  {
+                ?template rdf:type orkgc:NodeShape ;
+                          rdfs:label ?templateLabel ;
+                          orkgp:sh:targetClass ?templateClass .
+            }
+            group by ?template ?templateLabel ?templateClass
+        }
+        OPTIONAL{
+            ?templateInstance rdf:type ?templateClass .
+        }
+        # Contribution template
+        FILTER(?template = orkgr:R603969) 
+        OPTIONAL{
+            ?templateInstance orkgp:P32 ?research_problem.
+        }
+        OPTIONAL{
+            ?templateInstance orkgp:MATERIAL ?material.
+        }
+        OPTIONAL{
+            ?templateInstance orkgp:METHOD ?method.
+        }
+        OPTIONAL{
+            ?templateInstance orkgp:RESULT ?result.
+        }
+    } 
+} 
+group by ?template ?templateLabel

@@ -1,0 +1,18 @@
+# Forked
+[submodule "semopenalex"]
+	path = src/tools/semopenalex
+	url = https://github.com/GreenfishK/semopenalex
+# Original
+[submodule "rmlmapper-java"]
+	path = src/tools/rmlmapper-java
+	url = https://github.com/RMLio/rmlmapper-java.git
+[submodule "JedAIToolkit"]
+	path = src/tools/JedAIToolkit
+	url = https://github.com/scify/JedAIToolkit.git
+[submodule "jq"]
+	path = src/tools/jq
+	url = https://github.com/jqlang/jq
+[submodule "openreview_scraper"]
+	path = src/tools/openreview_scraper
+	url = https://github.com/pranftw/openreview_scraper
+

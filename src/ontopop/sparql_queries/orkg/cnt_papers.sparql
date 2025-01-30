@@ -1,0 +1,11 @@
+PREFIX orkgr: <http://orkg.org/orkg/resource/>
+PREFIX orkgc: <http://orkg.org/orkg/class/>
+PREFIX orkgp: <http://orkg.org/orkg/predicate/>
+PREFIX rdfs: <http://www.w3.org/2000/01/rdf-schema#>
+
+Select (count(distinct ?paper) as ?cnt_paper) {
+  
+  ?paper rdf:type orkgc:Paper .
+  ?paper rdfs:label ?title .
+  ?paper orkgp:P31 ?contribution .
+} 
