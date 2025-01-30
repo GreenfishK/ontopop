@@ -858,6 +858,54 @@ def plot_hallucination(input_dataset_file_names, output_dataset_file_name, plot_
     plt.savefig(f"{plots_dir}/{plot_file_name}", format="eps")
 
 
+def calc_corr_tokens_vs_errors(input_dataset_file_names, output_dataset_file_name):
+    corr = 0
+
+    logging.info(f"calculating correlation between number of tokens and generation errors")
+
+    # Prepare data for plot
+    ontopop_dfs = []
+    for input_dataset_file_name in input_dataset_file_names:
+        ontopop_df = pd.read_csv(f"{evaluate_dir}/{input_dataset_file_name}", escapechar='\\')
+        
+        model = input_dataset_file_name.split("_")[3].split("-")[0]
+        ontopop_df.loc[:,"model"] = model
+
+        ontopop_dfs.append(ontopop_df)
+
+    ontopop_df = ontopop_df.reset_index()
+    ontopop_df = pd.concat(ontopop_dfs, axis=0)
+
+    # Rename model label
+    ontopop_df.loc[ontopop_df["model"]=="Meta", "model"] = "LLama3"
+
+    # Select columns
+    ontopop_df = ontopop_df[["property", "avgTokenCountPropertyValuePrediction", "errorType"]]
+
+    # Group by property and calculate average token count per property
+    property_avg_token = ontopop_df.groupby("property")["avgTokenCountPropertyValuePrediction"].mean().reset_index()
+
+    # Calculate the error ratio for each property (NoValuesGenerated errors / total property values)
+    error_count = ontopop_df[ontopop_df["errorType"] == "NoValuesGenerated"].groupby("property").size().reset_index(name="errorCount")
+    total_property_count = ontopop_df.groupby("property").size().reset_index(name="totalCount")
+
+    # Merge error counts and total counts to get the error ratio
+    property_error_ratio = pd.merge(error_count, total_property_count, on="property")
+    property_error_ratio["errorRatio"] = property_error_ratio["errorCount"] / property_error_ratio["totalCount"]
+
+    # Merge the error ratio with the average token counts
+    property_data = pd.merge(property_avg_token, property_error_ratio[["property", "errorRatio"]], on="property")
+
+    # Calculate the correlation between average token count and error ratio
+    corr = property_data["avgTokenCountPropertyValuePrediction"].corr(property_data["errorRatio"])
+    logging.info(f"Calculated correlation: {corr}")
+
+    # save results to a file
+    property_data.to_csv(f"{visualize_dir}/{output_dataset_file_name}", index=False)
+
+    return corr
+
+
 ##########################################################################################
 # Pipeline
 ##########################################################################################
@@ -894,3 +942,7 @@ output_dataset_file_name = f"ontopop_hallucination_{pdf_parser}_{shots}.csv"
 plot_file_name = f"ontopop_hallucination_{pdf_parser}_{shots}.eps"
 plot_hallucination(input_dataset_file_names, output_dataset_file_name, plot_file_name)
 
+# correlation between number of tokens and generated errors per property
+output_dataset_file_name = f"ontopop_correlation_{pdf_parser}_{shots}.csv"
+corr = calc_corr_tokens_vs_errors(input_dataset_file_names, output_dataset_file_name)
+logging.info(corr)

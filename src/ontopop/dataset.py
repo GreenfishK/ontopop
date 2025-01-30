@@ -319,8 +319,9 @@ logging.info(f"Dataframe dimensions: {ontopop_dump_df.shape}")
 log_statistics(ontopop_dump_df, "ontopop_statistics_7.json")
 
 # Filter out records that have no property values
-logging.info("Remove records with no property values.")
+logging.info("Remove records with no property values or where property values are NA or N/A.")
 ontopop_dump_df.dropna(subset=["propertyValues"], inplace=True)
+ontopop_dump_df = ontopop_dump_df[~ontopop_dump_df["propertyValues"].isin(["NA", "N/A"])]
 logging.info(f"Dataframe dimensions: {ontopop_dump_df.shape}")
 log_statistics(ontopop_dump_df, "ontopop_statistics_8.json")
 

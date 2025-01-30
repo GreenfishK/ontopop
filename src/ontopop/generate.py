@@ -341,7 +341,7 @@ def main():
     ontopop_df["errorType"] = None
 
     # Set datatypes
-    ontopop_df["propertyValues"] = ontopop_df["propertyValues"].astype("string")
+    ontopop_df["propertyValues"] = ontopop_df["propertyValues"].astype("str")
     ontopop_df["propertyValuePrediction"] = ontopop_df["propertyValuePrediction"].astype("string")
 
     # Set Sentence Embeddings
@@ -382,6 +382,7 @@ def main():
         
     logging.info(f"Predicting property values")
     total_rows = ontopop_df.shape[0]
+    
     ontopop_df = ontopop_df.apply(predict_property, args=(embeddings, llm, tokenizer, total_rows,
                                                          instruction_template, user_query_template,
                                                          feedback_template), axis=1)

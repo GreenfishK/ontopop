@@ -223,6 +223,7 @@ function visualize () {
     --bind ${ONTOPOP_LOGS}/visualize:${c_logs}/visualize \
     --bind ${ONTOPOP_DATA}/create_dataset:${c_data}/create_dataset\
     --bind ${ONTOPOP_DATA}/evaluate:${c_data}/evaluate\
+    --bind ${ONTOPOP_DATA}/visualize:${c_data}/visualize\
     --bind ${ONTOPOP_PLOTS}:${c_plots}\
     --env "PDF_PARSER=${PDF_PARSER}" \
     --env "SHOTS=${SHOTS}" \
