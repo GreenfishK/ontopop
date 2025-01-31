@@ -195,8 +195,9 @@ function evaluate () {
     --bind src/ontopop/evaluate.py:${c_home}/src/ontopop/evaluate.py \
     --bind ${ONTOPOP_LOGS}/evaluate:${c_logs}/evaluate \
     --bind ${ONTOPOP_DATA}/generate:${c_data}/generate \
+    --bind ${ONTOPOP_DATA}/evaluate:${c_data}/evaluate \
     --bind ${ONTOPOP_MODELS}:${c_models} \
-    --env "HF_HOME=${c_data}/models/huggingface" \
+    --env "HF_HOME=${c_models}/huggingface" \
     --env "HF_TOKEN=${e_HF_TOKEN}" \
     --env "TORCH_USE_CUDA_DSA=1" \
     --env "CUDA_LAUNCH_BLOCKING=1" \

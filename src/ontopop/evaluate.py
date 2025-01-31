@@ -145,7 +145,6 @@ logging.info("Metric: Average count of tokens per generated property value")
 tokenizer = AutoTokenizer.from_pretrained(llm_id, token=os.environ["HF_TOKEN"])
 ontopop_df = ontopop_df.apply(compute_token_statistics, args=(tokenizer, total_rows), axis=1)
 
-
 # Save
 logging.info(f"Saving populated dataset to {output_dir}/{output_dataset_file_name}")
 ontopop_df.reset_index(inplace=True)
