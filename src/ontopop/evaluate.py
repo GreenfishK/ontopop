@@ -90,17 +90,29 @@ def compute_token_statistics(row, tokenizer, total_rows):
 
     logging.info(f"{row_index}/{total_rows}: Computing token counts for row: Paper ORKG ID: '{paperORKGID}' with Contribution ORKG ID: {contributionORKGID} and property ORKG ID: {propertyORKGID}.")
     gen_values = str(row["propertyValuePrediction"]).split("|") if len(str(row["errorType"])) != 0 else []
+    crowd_values = str(row["propertyValues"]).split("|") if len(str(row["errorType"])) != 0 else []
 
     if not gen_values:
         row["avgTokenCountPropertyValuePrediction"] = 0
         return row
     
-    cnt_property_value_tokens = []
+    if not crowd_values:
+        row["avgTokenCountPropertyValueCrowd"] = 0
+        return row
+    
+    cnt_property_value_gen_tokens = []
     for property_value in gen_values:
         tokens = tokenizer.tokenize(property_value)
-        cnt_property_value_tokens.append(len(tokens))
-    avg_cnt_property_value_tokens = np.mean(cnt_property_value_tokens)
+        cnt_property_value_gen_tokens.append(len(tokens))
+    avg_cnt_property_value_tokens = np.mean(cnt_property_value_gen_tokens)
     row["avgTokenCountPropertyValuePrediction"] = avg_cnt_property_value_tokens
+
+    cnt_property_value_crowd_tokens = []
+    for property_value in crowd_values:
+        tokens = tokenizer.tokenize(property_value)
+        cnt_property_value_crowd_tokens.append(len(tokens))
+    avg_cnt_property_value_tokens = np.mean(cnt_property_value_crowd_tokens)
+    row["avgTokenCountPropertyValueCrowd"] = avg_cnt_property_value_tokens
 
     return row
 
@@ -120,6 +132,7 @@ ontopop_df = pd.read_csv(f"{datasets_dir}/{input_dataset_file_name}", escapechar
 # Define new columns for compute_metrics and compute_token_statistics task
 ontopop_df["avgMaxSemanticSimilarity"] = None
 ontopop_df["avgTokenCountPropertyValuePrediction"] = None
+ontopop_df["avgTokenCountPropertyValueCrowd"] = None
 
 # Set the index and datatypes
 ontopop_df.set_index(["paper", "contributionInstance", "property"], inplace=True)

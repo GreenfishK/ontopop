@@ -156,7 +156,7 @@ fig_size = (16,9)
 
 def plot_template_properties(input_dataset_file_name, output_dataset_file_name, plot_file_name):
     """
-    Frequency of template property numbers grouped into three clusters
+    Frequency of template property numbers.
     """
     logging.info(f"Creating plot: {plot_file_name}")
 
@@ -166,51 +166,25 @@ def plot_template_properties(input_dataset_file_name, output_dataset_file_name, 
 
     # Cluster cntTemplateProperty
     cntTemplateProperty_values = templates_df["cntTemplateProperty"].values.reshape(-1, 1).astype(int)
-    kmeans = KMeans(n_clusters=3, random_state=42, n_init=100)
-    kmeans.fit(cntTemplateProperty_values)
-    cluster_centers = kmeans.cluster_centers_.flatten()
-    cluster_centers.sort()
-    clusters = kmeans.predict(cntTemplateProperty_values)
-
-    # Create a list of cluster ranges
-    cluster_ranges_list = []
-    for i in range(3):  # Iterate over cluster IDs
-        cluster_values = cntTemplateProperty_values[clusters == i].flatten()
-        min_value = cluster_values.min()
-        max_value = cluster_values.max()
-        cluster_ranges_list.append([min_value, max_value])
-
-    # Create a mapping from original cluster IDs to new cluster IDs based on the cluster ranges
-    sorted_cluster_ranges = sorted(cluster_ranges_list)
-    remap_dict = {i: sorted_cluster_ranges.index(cluster_range) for i, cluster_range in enumerate(cluster_ranges_list)}
 
     # Get unique values and their counts
     unique_values, counts = np.unique(cntTemplateProperty_values, return_counts=True)
-    cluster_colors = {0:'black', 1:'dimgrey', 2:'white'}
     label_margin = 1
+    print(unique_values, counts)
 
     # Create a figure with the desired size
     fig, ax = plt.subplots(figsize=fig_size)
 
     # Plot bars for each unique value
     for value, count in zip(unique_values, counts):
-        cluster_index = kmeans.predict([[value]])[0]
-        remapped_cluster_index = remap_dict[cluster_index]
-        color = cluster_colors[remapped_cluster_index]
         
         # Check if frequency is 1, and annotate with templateLabel vertically
         if count == 1:
             template_label = templates_df.loc[templates_df["cntTemplateProperty"] == value, "templateLabel"].values[0]
-            ax.bar(value, count, color=color, edgecolor="black")
+            ax.bar(value, count, color="black", edgecolor="black")
             ax.text(value, count + label_margin, template_label, ha='center', va='bottom', rotation='vertical', fontsize=10)
         else:
-            ax.bar(value, count, color=color, edgecolor="black")
-
-    for center in cluster_centers:
-        cluster_index = kmeans.predict([[center]])[0]
-        remapped_cluster_index = remap_dict[cluster_index]
-        color = cluster_colors[remapped_cluster_index]
-        ax.axvline(x=center, color="black", linestyle='--')
+            ax.bar(value, count, color="black", edgecolor="black")
 
     # Set x-axis and y-axis labels
     ax.xaxis.set_label_text('Number of template properties', fontsize=16)
@@ -240,6 +214,10 @@ def plot_template_usage(input_dataset_file_name, output_dataset_file_name, plot_
     
     cnt_templates = templates_df['template'].count()
     cnt_zero_usages = templates_df.loc[templates_df['cntTemplateInstances'] == 0, 'template'].count()
+
+    # Calculate 10th and 90th percentiles
+    p10_index = int(0.1 * cnt_templates)
+    p90_index = int(0.9 * cnt_templates)
 
     # Plot
     fig, ax1 = plt.subplots(1, 1, figsize=fig_size, sharex=False)  # Create subplots
@@ -271,7 +249,7 @@ def plot_template_usage(input_dataset_file_name, output_dataset_file_name, plot_
     max_cnt = templates_df['cntTemplateInstances'].max()
     max_power = math.floor(math.log10(max_cnt))
 
-    x_tick_positions = [1, cnt_templates - cnt_zero_usages, cnt_templates]
+    x_tick_positions =  [1, p10_index, cnt_templates - cnt_zero_usages, p90_index, cnt_templates]
     ax1.set_xticks(x_tick_positions)  
     
     y_tick_positions = [10 ** i for i in range(0, max_power + 1)]
@@ -286,7 +264,7 @@ def plot_template_usage(input_dataset_file_name, output_dataset_file_name, plot_
     ax1.xaxis.set_label_text('Template index', fontsize=16)
     ax1.yaxis.set_label_text('Number of template instances (log scale)', fontsize=16)
 
-    x_tick_labels = [1, cnt_templates - cnt_zero_usages, cnt_templates]
+    x_tick_labels = [1, f"{p10_index} (10P)", cnt_templates - cnt_zero_usages, f"{p90_index} (90P)", cnt_templates]
     ax1.xaxis.set_ticklabels(x_tick_labels, rotation=0) 
 
     ax1.set_yscale('log') 
@@ -429,10 +407,10 @@ def plot_template_utilization(input_dataset_file_name, contr_tmpl_dataset_file_n
 
     # Draw line to connect the contribution template bar from ax1 with ax2
     # Calculate the center of the third bar from the top (index 2, as index starts from 0)
-    third_bar = bars[2]
-    third_bar.set_linewidth(3)
-    third_bar_center_x = third_bar.get_width() / 2
-    third_bar_center_y = third_bar.get_y() + third_bar.get_height() / 2
+    second_bar = bars[1]
+    second_bar.set_linewidth(3)
+    second_bar_center_x = second_bar.get_width() / 2
+    second_bar_center_y = second_bar.get_y() + second_bar.get_height() / 2
 
     # Get the position of the title of ax2 (in ax2's coordinate system)
     title_position_ax2 = ax2.title.get_position()
@@ -444,7 +422,7 @@ def plot_template_utilization(input_dataset_file_name, contr_tmpl_dataset_file_n
     ax2_title_fig_coords = ax2.transAxes.transform([ax2_title_x, ax2_title_y])
     ax1_title_x, ax1_title_y = ax1.transData.inverted().transform(ax2_title_fig_coords)
 
-    ax1.plot([third_bar_center_x, ax1_title_x], [third_bar_center_y, ax1_title_y-2], 
+    ax1.plot([second_bar_center_x, ax1_title_x], [second_bar_center_y, ax1_title_y-2], 
              color='black', lw=1.5)
 
     # Save plot
@@ -711,7 +689,8 @@ def plot_hallucination(input_dataset_file_names, output_dataset_file_name, plot_
         ontopop_df_sub = ontopop_df[["model", "paper", "property", "paperTitle",
                                     "propertyName", "propertyValues", "ynExactMatchSnippets",
                                     "ynExactMatchFullText", "avgMaxSemanticSimilarity",
-                                     "avgTokenCountPropertyValuePrediction", "errorType"]]
+                                     "avgTokenCountPropertyValuePrediction", 
+                                     "avgTokenCountPropertyValueCrowd", "errorType"]]
         
         ontopop_df_errors = ontopop_df_sub[~ontopop_df_sub["errorType"].isna()]
         logging.info(f"Total rows for {model}: {len(ontopop_df)}")
@@ -724,9 +703,9 @@ def plot_hallucination(input_dataset_file_names, output_dataset_file_name, plot_
 
         ontopop_df_sub_agg_1 = ontopop_df_sub.groupby(["model", "property", "propertyName"]).agg(semantic_similarity_mean=pd.NamedAgg(column="avgMaxSemanticSimilarity", aggfunc="mean"),
                                                                                                  support_properties=pd.NamedAgg(column="property", aggfunc="count"),
-                                                                                                 avgTokenCount = pd.NamedAgg(column="avgTokenCountPropertyValuePrediction", aggfunc="mean"))
-        ontopop_df_sub_agg_1 = ontopop_df_sub_agg_1[ontopop_df_sub_agg_1["support_properties"] >= 50]
-
+                                                                                                 avgTokenCountGen = pd.NamedAgg(column="avgTokenCountPropertyValuePrediction", aggfunc="mean"),
+                                                                                                 avgTokenCountCrowd = pd.NamedAgg(column="avgTokenCountPropertyValueCrowd", aggfunc="mean")
+                                                                                                 )
         ontopop_df_sub_agg_2 = ontopop_df_sub[ontopop_df_sub["ynExactMatchSnippets"] == "yes"]
         ontopop_df_sub_agg_2 = ontopop_df_sub_agg_2.groupby(["model", "property", "propertyName"]).agg(cnt_matches=pd.NamedAgg(column="avgMaxSemanticSimilarity", aggfunc="count"))
 
@@ -736,7 +715,18 @@ def plot_hallucination(input_dataset_file_names, output_dataset_file_name, plot_
         ontopop_df_sub_agg = ontopop_df_sub_agg.reset_index()
         ontopop_df_viz_top_dfs.append(ontopop_df_sub_agg)
     ontopop_df_viz_top = pd.concat(ontopop_df_viz_top_dfs, axis=0)
+
+    # Calculate correlation
+    corr_gen = ontopop_df_viz_top["avgTokenCountGen"].corr(ontopop_df_viz_top["pct_hallucination"])
+    logging.info(f"Correlation between number of tokens for generated property values and number of generated property values not found in snippets: {corr_gen}")
+
+    # Filter out records with fewer than 50 property instances
+    ontopop_df_viz_top = ontopop_df_viz_top[ontopop_df_viz_top["support_properties"] >= 50]
     
+    # Calculate correlation
+    corr_gen = ontopop_df_viz_top["avgTokenCountGen"].corr(ontopop_df_viz_top["pct_hallucination"])
+    logging.info(f"Correlation between number of tokens for generated property values and number of generated property values not found in snippets: {corr_gen}")
+
     # Filter out the properties for which there is not enough support from all three models
     ontopop_df_viz_top["cnt_models_per_property"] = ontopop_df_viz_top.groupby(["property"])["model"].transform("count")
     ontopop_df_viz_top = ontopop_df_viz_top[ontopop_df_viz_top["cnt_models_per_property"] == 3]
@@ -744,8 +734,9 @@ def plot_hallucination(input_dataset_file_names, output_dataset_file_name, plot_
     # Rename model label
     ontopop_df_viz_top.loc[ontopop_df_viz_top["model"]=="Meta", "model"] = "LLama3"
     
-    # Round avgTokenCountPropertyValuePrediction
-    ontopop_df_viz_top["avgTokenCount"] = ontopop_df_viz_top["avgTokenCount"].round().astype(int)
+    # Round average token counts
+    ontopop_df_viz_top["avgTokenCountGen"] = ontopop_df_viz_top["avgTokenCountGen"].round().astype(int)
+    ontopop_df_viz_top["avgTokenCountCrowd"] = ontopop_df_viz_top["avgTokenCountCrowd"].round().astype(int)
 
     # Save dataset
     ontopop_df_viz_top.to_csv(f"{visualize_dir}/{output_dataset_file_name}", escapechar='\\')
@@ -772,15 +763,18 @@ def plot_hallucination(input_dataset_file_names, output_dataset_file_name, plot_
     # Plot: support (properties)
     for i, v in enumerate(hallucination["support_properties"].values):
         axs[0].text(0.3, i, v, va='center', fontsize=10)
-    for i, v in enumerate(hallucination["avgTokenCount"].values):
-        axs[0].text(1.3, i, v, va='center', fontsize=10)
+    for i, v in enumerate(hallucination["avgTokenCountGen"].values):
+        axs[0].text(1.8, i, v, va='center', fontsize=10)
+    for i, v in enumerate(hallucination["avgTokenCountCrowd"].values):
+        axs[0].text(3.3, i, v, va='center', fontsize=10)
 
     # Ticks
     axs[0].yaxis.set_ticks(y_ticks)
 
     # Labels and Fonts
     support_header = axs[0].text(0,0, "Support \n(properties)", fontsize=12, rotation=45)
-    tokenCnt_header = axs[0].text(0,0, "Average \ngenerated tokens", fontsize=12, rotation=45)
+    tokenCnt_header = axs[0].text(0,0, "Average \ntokens (response)", fontsize=12, rotation=45)
+    tokenCrowdCnt_header = axs[0].text(0,0, "Average \ntokens (crowd)", fontsize=12, rotation=45)
     axs[0].yaxis.set_label_text("Property labels", fontsize=16)
 
     ylabels = list(hallucination["propertyName"] + " - " + hallucination["model"].str[0] + ":")
@@ -805,6 +799,7 @@ def plot_hallucination(input_dataset_file_names, output_dataset_file_name, plot_
     header_offset=-0.3
     support_header.set_position((x0 + header_offset,len(hallucination[["support_properties"]])))
     tokenCnt_header.set_position((x0 + 1.5 + header_offset,len(hallucination[["support_properties"]])))
+    tokenCrowdCnt_header.set_position((x0 + 3 + header_offset,len(hallucination[["support_properties"]])))
 
     # Subplot 2
     # Plot   
@@ -843,7 +838,7 @@ def plot_hallucination(input_dataset_file_names, output_dataset_file_name, plot_
     axs[1].get_legend().remove()
 
     # Position
-    axs[1].set_position([x1 + 0.03, y0, 0.6, y1-y0])
+    axs[1].set_position([x1 + 0.09, y0, 0.6, y1-y0])
     axs[1].set_ylim(y_min, y_max)
 
     # Scale
@@ -883,7 +878,7 @@ def calc_corr_tokens_vs_errors(input_dataset_file_names, output_dataset_file_nam
     ontopop_df = ontopop_df[["property", "avgTokenCountPropertyValuePrediction", "errorType"]]
 
     # Group by property and calculate average token count per property
-    property_avg_token = ontopop_df.groupby("property")["avgTokenCountPropertyValuePrediction"].mean().reset_index()
+    property_avg_token_gen = ontopop_df.groupby("property")["avgTokenCountPropertyValuePrediction"].mean().reset_index()
 
     # Calculate the error ratio for each property (NoValuesGenerated errors / total property values)
     error_count = ontopop_df[ontopop_df["errorType"] == "NoValuesGenerated"].groupby("property").size().reset_index(name="errorCount")
@@ -894,14 +889,14 @@ def calc_corr_tokens_vs_errors(input_dataset_file_names, output_dataset_file_nam
     property_error_ratio["errorRatio"] = property_error_ratio["errorCount"] / property_error_ratio["totalCount"]
 
     # Merge the error ratio with the average token counts
-    property_data = pd.merge(property_avg_token, property_error_ratio, on="property")
+    property_data_gen = pd.merge(property_avg_token_gen, property_error_ratio, on="property")
 
     # Calculate the correlation between average token count and error ratio
-    corr = property_data["avgTokenCountPropertyValuePrediction"].corr(property_data["errorRatio"])
-    logging.info(f"Calculated correlation: {corr}")
+    corr_gen = property_data_gen["avgTokenCountPropertyValuePrediction"].corr(property_data_gen["errorRatio"])
+    logging.info(f"Calculated correlation for generated token counts vs error ratios: {corr_gen}")
 
     # save results to a file
-    property_data.to_csv(f"{visualize_dir}/{output_dataset_file_name}", index=False)
+    property_data_gen.to_csv(f"{visualize_dir}/{output_dataset_file_name}", index=False)
 
 
 ##########################################################################################

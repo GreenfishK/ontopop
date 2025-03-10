@@ -37,6 +37,22 @@ function download () {
     $APPTAINER_IMG ${c_home}/src/ontopop/download_data.sh $dataset
 }
 
+function download_contributors () {
+
+    # Create directories
+    mkdir -p ${ONTOPOP_LOGS}/download
+    mkdir -p ${ONTOPOP_DATA}/download
+
+    chmod 700 src/ontopop/contributors.py
+    apptainer exec \
+    --fakeroot \
+    --writable-tmpfs \
+    --bind ${ONTOPOP_LOGS}/download:${c_logs}/download \
+    --bind ${ONTOPOP_DATA}/download:${c_data}/download \
+    --bind src/ontopop/contributors.py:${c_home}/src/ontopop/contributors.py \
+    $APPTAINER_IMG ${c_home}/src/ontopop/contributors.py
+}
+
 function correct () {
     dataset=$1
 
@@ -238,6 +254,8 @@ function visualize () {
 # meta-llama/Meta-Llama-3-8B-Instruct, tiiuae/Falcon3-10B-Instruct, mistralai/Mistral-7B-Instruct-v0.3
 if [ "$1" = "download" ]; then
     download $2
+elif [ "$1" = "download_contributors" ]; then
+    download_contributors
 elif [ "$1" = "correct" ]; then
     correct $2
 elif [ "$1" = "ingest" ]; then
@@ -251,5 +269,5 @@ elif [ "$1" = "evaluate" ]; then
 elif [ "$1" = "visualize" ]; then
     visualize $2 $3
 else
-    echo "Available functions are: download, correct, ingest, create_dataset, generate, evaluate, visualize."
+    echo "Available functions are: download, download_contributors, correct, ingest, create_dataset, generate, evaluate, visualize."
 fi

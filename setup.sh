@@ -65,9 +65,9 @@ server="$1"
 if [[ $server == "vsc5" ]]; then
     module load --auto apptainer/1.0.2-gcc-12.2.0-ufkuvan 
     if [[ ! -f $APPTAINER_IMG ]]; then
-        echo "Apptainer image skg.sif was not found in ${APPTAINER_IMG}. Make sure to bring your own image and place it into the aforementioned path."
+        echo "Apptainer image ontopop.sif was not found in ${APPTAINER_IMG}. Make sure to bring your own image and place it into the aforementioned path."
     else
-        echo "Apptainer image skg.sif available in ${APPTAINER_IMG}."
+        echo "Apptainer image ontopop.sif available in ${APPTAINER_IMG}."
     fi
 elif [[ $server == "datalab" ]]; then
     # Note: Make sure you have read and write permissions in your $DATA directory
@@ -76,9 +76,9 @@ elif [[ $server == "datalab" ]]; then
     # directories in $DATA where the data is written to are owned by root.
     # Thus, they can be manipulated e.g. by you, which should, however, 
     # only be done during experimentation.
-    apptainer build $APPTAINER_IMG skg.def
+    apptainer build $APPTAINER_IMG ontopop.def
 else 
     # Sudo rights required!!
     install_apptainer
-    apptainer build $APPTAINER_IMG skg.def
+    apptainer build $APPTAINER_IMG ontopop.def
 fi

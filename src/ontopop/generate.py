@@ -144,10 +144,10 @@ def predict_property(row, embeddings, llm, tokenizer, total_rows, instruction_te
     question_to_retriever = f"{question_add}What matches the following property-description pair: {propertyProcessed}:{property_description}"
     retriever = vectorstore.as_retriever(search_kwargs={"k":10})
     docs = retriever.invoke(question_to_retriever)
-        
+    snippets = "\nSnippet:" + "\n\nSnippet:".join(doc.page_content for doc in docs)
+
     # Retrieve snippets
     logging.info(f"Set template for prompt and question based on the given property.")
-    snippets = "\nSnippet:" + "\n\nSnippet:".join(doc.page_content for doc in docs)
 
     # Check if the crowdsourced property value is contained in the snippets and in the text
     logging.info("Check if the crowdsourced property value is contained in the snippets and in the text")
@@ -285,10 +285,11 @@ def predict_property(row, embeddings, llm, tokenizer, total_rows, instruction_te
     
     if success:
         row["ynExactMatchSnippets"] = "yes" 
-        logging.info(f"Failed to generate property values that are found in the snippets within retry limit of {retry_limit}.")
+        logging.info(f"Sucessfully generate property values that are found in the snippets within retry limit of {retry_limit}.")
     else:
         row["ynExactMatchSnippets"] = "no"
-        logging.info(f"Sucessfully generate property values that are found in the snippets within retry limit of {retry_limit}.")
+        logging.info(f"Failed to generate property values that are found in the snippets within retry limit of {retry_limit}.")
+
     
     # Save prompts
     prompt = tokenizer.apply_chat_template(messages,tokenize=False)
@@ -393,14 +394,14 @@ def main():
 
     # Assertions
     # Assert that that there are as many paper IDs and property IDs in the log files as in the ontopop_statistics_10.json file
-    # grep -o "Paper ORKG ID: 'R[0-9]*'" generate_tika_Falcon3-10B-Instruct_zero_shot.txt | awk -F"'" '{print $2}' | sort | uniq | wc -l
-    # grep -o "Paper ORKG ID: 'R[0-9]*'" generate_tika_Meta-Llama-3-8B-Instruct_zero_shot.txt | awk -F"'" '{print $2}' | sort | uniq | wc -l
-    # grep -o "Paper ORKG ID: 'R[0-9]*'" generate_tika_Mistral-7B-Instruct-v0.3_zero_shot.txt | awk -F"'" '{print $2}' | sort | uniq | wc -l
+    # grep -o "Paper ORKG ID: 'R[0-9]*'" ontopop_predicted_tika_Falcon3-10B-Instruct_zero_shot.txt | awk -F"'" '{print $2}' | sort | uniq | wc -l
+    # grep -o "Paper ORKG ID: 'R[0-9]*'" ontopop_predicted_tika_Meta-Llama-3-8B-Instruct_zero_shot.txt | awk -F"'" '{print $2}' | sort | uniq | wc -l
+    # grep -o "Paper ORKG ID: 'R[0-9]*'" ontopop_predicted_tika_Mistral-7B-Instruct-v0.3_zero_shot.txt | awk -F"'" '{print $2}' | sort | uniq | wc -l
     # Assertion passed on 24.01.2025 11:25
 
-    # grep -o "property ORKG ID: .*" generate_tika_Falcon3-10B-Instruct_zero_shot.txt | awk -F": " '{print $2}' | sort | uniq | wc -l
-    # grep -o "property ORKG ID: .*" generate_tika_Meta-Llama-3-8B-Instruct_zero_shot.txt | awk -F": " '{print $2}' | sort | uniq | wc -l
-    # grep -o "property ORKG ID: .*" generate_tika_Mistral-7B-Instruct-v0.3_zero_shot.txt | awk -F": " '{print $2}' | sort | uniq | wc -l
+    # grep -o "property ORKG ID: .*" ontopop_predicted_tika_Falcon3-10B-Instruct_zero_shot.txt | awk -F": " '{print $2}' | sort | uniq | wc -l
+    # grep -o "property ORKG ID: .*" ontopop_predicted_tika_Meta-Llama-3-8B-Instruct_zero_shot.txt | awk -F": " '{print $2}' | sort | uniq | wc -l
+    # grep -o "property ORKG ID: .*" ontopop_predicted_tika_Mistral-7B-Instruct-v0.3_zero_shot.txt | awk -F": " '{print $2}' | sort | uniq | wc -l
     # Assertion passed on 24.01.2025 11:25
 
 if __name__ == "__main__":
