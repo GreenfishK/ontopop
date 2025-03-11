@@ -68,6 +68,7 @@ from sklearn.cluster import KMeans
 from matplotlib.ticker import FuncFormatter
 import math
 from matplotlib.cm import ScalarMappable
+from collections import Counter
 
 
 ##########################################################################################
@@ -77,6 +78,7 @@ log_dir = f"/home/ontopop/logs/visualize"
 create_dataset_dir = f"/home/ontopop/data/create_dataset"
 evaluate_dir = f"/home/ontopop/data/evaluate"
 visualize_dir = f"/home/ontopop/data/visualize"
+download_dir = f"/home/ontopop/data/download"
 plots_dir = "/home/ontopop/plots"
 
 ##########################################################################################
@@ -141,19 +143,6 @@ def set_size(width, fraction=1):
 ##########################################################################################
 # Plots
 ##########################################################################################
-# Read environment variables
-pdf_parser=os.environ["PDF_PARSER"]
-shots=os.environ["SHOTS"]
-
-# Formats for Latex template
-#latex_width=347
-fig_size = (16,9)
-#plt.rc('font', size=12)  # Base font size
-#plt.rc('axes', labelsize=14)  # Axis label size
-#plt.rc('xtick', labelsize=14)  # X-tick label size
-#plt.rc('ytick', labelsize=14)  # Y-tick label size
-#plt.rc('legend', fontsize=12)  # Legend font size
-
 def plot_template_properties(input_dataset_file_name, output_dataset_file_name, plot_file_name):
     """
     Frequency of template property numbers.
@@ -899,9 +888,43 @@ def calc_corr_tokens_vs_errors(input_dataset_file_names, output_dataset_file_nam
     property_data_gen.to_csv(f"{visualize_dir}/{output_dataset_file_name}", index=False)
 
 
+def plot_orkg_contributors(input_dataset_file_names):
+
+    # Read the scraped data
+    df = pd.read_csv(f"{download_dir}/{input_dataset_file_names}", delimiter=';')
+
+    # Count occurrences of each contributor
+    contributor_counts = Counter(df['contributor'])
+    contributors = list(contributor_counts.keys())
+    paper_counts = list(contributor_counts.values())
+
+    # Plot
+    plt.figure(figsize=(16, 9))
+    plt.bar(range(len(contributors)), paper_counts, edgecolor='black', color='white')
+    plt.xlabel("Users (Indexed)")
+    plt.ylabel("Number of Papers")
+    plt.title("Number of Papers per Contributor")
+    plt.xticks(range(len(contributors)), range(len(contributors)), rotation=90)
+    plt.grid(axis='y', linestyle='--', alpha=0.7)
+    plt.savefig(f"{plots_dir}/orkg_contributors.eps", format="eps")
+
+
 ##########################################################################################
 # Pipeline
 ##########################################################################################
+# Read environment variables
+pdf_parser=os.environ["PDF_PARSER"]
+shots=os.environ["SHOTS"]
+
+# Formats for Latex template
+#latex_width=347
+fig_size = (16,9)
+#plt.rc('font', size=12)  # Base font size
+#plt.rc('axes', labelsize=14)  # Axis label size
+#plt.rc('xtick', labelsize=14)  # X-tick label size
+#plt.rc('ytick', labelsize=14)  # Y-tick label size
+#plt.rc('legend', fontsize=12)  # Legend font size
+
 input_dataset_file_names = []
 for file in os.listdir(f"{evaluate_dir}"):
     input_dataset_file_names.append(file)
@@ -938,3 +961,7 @@ plot_hallucination(input_dataset_file_names, output_dataset_file_name, plot_file
 # correlation between number of tokens and generated errors per property
 output_dataset_file_name = f"ontopop_correlation_{pdf_parser}_{shots}.csv"
 calc_corr_tokens_vs_errors(input_dataset_file_names, output_dataset_file_name)
+
+# orkg contributors vs the number of papers they crowdsourced
+input_dataset_file_name = f"orkg_contributors_2025-03-11.csv"
+plot_orkg_contributors(input_dataset_file_name)

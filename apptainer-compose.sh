@@ -1,11 +1,11 @@
 #!/bin/bash
-#SBATCH --gres=gpu:a100:1	   # select gpu
-#SBATCH --partition=GPU-a100        # select a partition i.e. "GPU-a100"
 #SBATCH --nodes=1                   # select number of nodes
 #SBATCH --ntasks-per-node=1        # select number of tasks per node
 #SBATCH --time=2-0            # request 1 day of wall clock time
 #SBATCH --mem=80GB                   # memory size required per node
 
+#!SBATCH --gres=gpu:a100:1	   # select gpu
+#!SBATCH --partition=GPU-a100        # select a partition i.e. "GPU-a100"
 ####################################################################################
 # Notes
 ####################################################################################
@@ -32,7 +32,7 @@ function download () {
     --fakeroot \
     --writable-tmpfs \
     --bind ${ONTOPOP_LOGS}/download:${c_logs}/download \
-    --bind ${ONTOPOP_DATA}/download:${c_data}/download\
+    --bind ${ONTOPOP_DATA}/download:${c_data}/download \
     --bind src/ontopop/download_data.sh:${c_home}/src/ontopop/download_data.sh \
     $APPTAINER_IMG ${c_home}/src/ontopop/download_data.sh $dataset
 }
@@ -50,7 +50,7 @@ function download_contributors () {
     --bind ${ONTOPOP_LOGS}/download:${c_logs}/download \
     --bind ${ONTOPOP_DATA}/download:${c_data}/download \
     --bind src/ontopop/contributors.py:${c_home}/src/ontopop/contributors.py \
-    $APPTAINER_IMG ${c_home}/src/ontopop/contributors.py
+    $APPTAINER_IMG python3 -u ${c_home}/src/ontopop/contributors.py 2>&1
 }
 
 function correct () {

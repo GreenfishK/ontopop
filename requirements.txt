@@ -33,5 +33,7 @@ llamaapi==0.1.36
 tika==2.6.0
 rouge-score==0.1.2
 sentencepiece==0.2.0
-bs4
 # grobid==0.2.0
+beautifulsoup4
+selenium
+webdriver-manager

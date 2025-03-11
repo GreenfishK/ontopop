@@ -76,9 +76,9 @@ elif [[ $server == "datalab" ]]; then
     # directories in $DATA where the data is written to are owned by root.
     # Thus, they can be manipulated e.g. by you, which should, however, 
     # only be done during experimentation.
-    apptainer build $APPTAINER_IMG ontopop.def
+    apptainer build $APPTAINER_IMG $APPTAINER_DEF
 else 
     # Sudo rights required!!
     install_apptainer
-    apptainer build $APPTAINER_IMG ontopop.def
+    apptainer build $APPTAINER_IMG $APPTAINER_DEF
 fi
