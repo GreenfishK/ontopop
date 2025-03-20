@@ -102,20 +102,3 @@ Stage: final
     export JAVA_HOME=/opt/java/java17/openjdk
     export PATH="/opt/java/java11/openjdk/bin:/opt/java/java17/openjdk/bin:${PATH}"
     export PYTHONPATH=/home/ontopop/src
-
-
-Stage: chrome
-From: browserless/chrome:latest
-
-#%files
-#    /usr/bin/google-chrome-stable /home/ontopop/chrome/google-chrome-stable
-#    /usr/lib/chromium-browser /home/ontopop/chrome/chromium
-
-%post
-#    cd /home/ontopop/chrome
-    google-chrome --version
-
-# Finalize the environment by including any remaining necessary dependencies
-#%environment
-#    export CHROME_BIN=/home/ontopop/chrome/google-chrome-stable
-#    export PATH="${PATH}:/home/ontopop/chrome"

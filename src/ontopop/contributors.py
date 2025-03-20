@@ -40,7 +40,7 @@ logging.basicConfig(
 ##########################################################################################
 # Functions
 ##########################################################################################
-def scrape_orkg_papers(output_file=f"{download_dir}/orkg_papers_{ts}.csv"):
+def scrape_orkg_papers(output_file=f"{download_dir}/orkg_contributors_{ts}.csv"):
     base_url = "https://orkg.org"
     papers = []
     page = 0  # Start page

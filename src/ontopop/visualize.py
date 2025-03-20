@@ -25,7 +25,7 @@
 
 # Plot 3
 # Retriever evaluation
-# How many of the crowdsourced property values are contained within the full text
+# How many of the CPVs are contained within the full text
 # * How many thereof contained within the snippets
 
 # Plot 4
@@ -40,10 +40,10 @@
 # How many property values could not be assigned (NoValuesGenerated)?
 
 # Plot(?): Confusion matrix
-# True positive: generated property values that match the crowdsourced property values and are found in the snippets
-# False positive: generated property values that match the crowdsourced property values and are not found in the snippets
-# True negative: generated property values that do not match the crowdsourced property values and are not found in the snippets
-# False negative: generated property values that do not match the crowdsourced propertys values and are found in the snippets
+# True positive: generated property values that match the CPVs and are found in the snippets
+# False positive: generated property values that match the CPVs and are not found in the snippets
+# True negative: generated property values that do not match the CPVs and are not found in the snippets
+# False negative: generated property values that do not match the CPVs and are found in the snippets
 
 ##########################################################################
 # Considerations
@@ -69,6 +69,7 @@ from matplotlib.ticker import FuncFormatter
 import math
 from matplotlib.cm import ScalarMappable
 from collections import Counter
+from matplotlib.ticker import MaxNLocator
 
 
 ##########################################################################################
@@ -468,7 +469,7 @@ def plot_similarities(input_dataset_file_names, output_dataset_file_name, plot_f
 
     logging.info(f'Global average semantic similarity: {ontopop_df_viz_top["semantic_similarity_mean"].mean()}')
 
-    # Take only the rows with over 50 crowdsourced property values per property
+    # Take only the rows with over 50 CPVs per property
     ontopop_df_viz_top = ontopop_df_viz_top[ontopop_df_viz_top["support_properties"] >= 50]
     ontopop_df_viz_top = ontopop_df_viz_top.reset_index()
 
@@ -889,7 +890,6 @@ def calc_corr_tokens_vs_errors(input_dataset_file_names, output_dataset_file_nam
 
 
 def plot_orkg_contributors(input_dataset_file_names):
-
     # Read the scraped data
     df = pd.read_csv(f"{download_dir}/{input_dataset_file_names}", delimiter=';')
 
@@ -898,14 +898,41 @@ def plot_orkg_contributors(input_dataset_file_names):
     contributors = list(contributor_counts.keys())
     paper_counts = list(contributor_counts.values())
 
+    # Sort contributors by the number of papers, descending
+    sorted_indices = np.argsort(paper_counts)[::-1]
+    contributors_sorted = [contributors[i] for i in sorted_indices]
+    paper_counts_sorted = [paper_counts[i] for i in sorted_indices]
+
+    # Only keep the first 10% of users
+    num_contributors = len(contributors_sorted)
+    first_10_percent = int(num_contributors * 0.1)
+    
+    contributors_sorted = contributors_sorted[:first_10_percent]
+    paper_counts_sorted = paper_counts_sorted[:first_10_percent]
+
+    # Calculate the total number of papers and the number of papers contributed by the top 10%
+    total_papers = np.sum(paper_counts)
+    top_10_percent_papers = np.sum(paper_counts_sorted)
+    top_10_percent_paper_percentage = (top_10_percent_papers / total_papers) * 100
+
     # Plot
     plt.figure(figsize=(16, 9))
-    plt.bar(range(len(contributors)), paper_counts, edgecolor='black', color='white')
-    plt.xlabel("Users (Indexed)")
-    plt.ylabel("Number of Papers")
-    plt.title("Number of Papers per Contributor")
-    plt.xticks(range(len(contributors)), range(len(contributors)), rotation=90)
+    plt.plot(range(len(contributors_sorted)), paper_counts_sorted, marker='o', color='black', linestyle='-', markersize=5, markeredgecolor='black')
+
+    plt.xlabel("Users ordered by the number of crowdsourced papers")
+    plt.ylabel("Number of papers")
+
+    # Update title with the number of papers contributed by the top 10% and the percentage
+    plt.title(f"Top 10% of users account for {top_10_percent_paper_percentage:.2f}% ({top_10_percent_papers:,}) of crowdsourced papers")
+    
+    plt.text(0, paper_counts_sorted[0], "Papers With Code", color='black', ha='center', va='bottom', fontsize=10)
+
+    # Set x-axis to linear scale
+    plt.xscale('linear')
+
+    # Grid settings
     plt.grid(axis='y', linestyle='--', alpha=0.7)
+    plt.tight_layout()  # To avoid clipping of tick labels
     plt.savefig(f"{plots_dir}/orkg_contributors.eps", format="eps")
 
 

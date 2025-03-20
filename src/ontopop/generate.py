@@ -246,7 +246,7 @@ def predict_property(row, embeddings, llm, tokenizer, total_rows, instruction_te
             return row
 
         # Verify that propertyValuePrediction is in the snippets and the full text
-        logging.info("Verification that predicted property values are in the text snippets.")
+        logging.info("Verification that generated property values are in the text snippets.")
         unknown_answer_pattern="(n\/a|na|no exact match|none|null|no result|not( explicitly)?)?( found| provided| specified| available| applicable| mentioned)?( in the( given| provided)?( context| snippets))?(\.)?"
         if not property_values_extracted or re.fullmatch(unknown_answer_pattern, property_values_extracted.lower()):
             row["errorType"] = "NoValuesGenerated"
@@ -331,15 +331,16 @@ def main():
     ontopop_df.set_index(["paper", "contributionInstance", "property"], inplace=True)
 
     # Define new columns for predict_property task
+    # Terms in comments are the terms used in the paper
     ontopop_df["rowIndex"] = range(1, len(ontopop_df) + 1)
-    ontopop_df["propertyValuePrediction"] = None
-    ontopop_df["ynCrowdsourcedValuesInSnippets"] = None
-    ontopop_df["ynCrowdsourcedValuesInText"] = None
+    ontopop_df["propertyValuePrediction"] = None # Property Value Generation 
+    ontopop_df["ynCrowdsourcedValuesInSnippets"] = None # Yn CPVs in snippets
+    ontopop_df["ynCrowdsourcedValuesInText"] = None # Yn CPVs in Text
     ontopop_df["ynAnswerExtractionSuccessful"] = None
-    ontopop_df['ynExactMatchSnippets'] = None
-    ontopop_df["ynExactMatchFullText"] = None
-    ontopop_df["retries"] = None
-    ontopop_df["errorType"] = None
+    ontopop_df['ynExactMatchSnippets'] = None # Yn Exact Match Snippets
+    ontopop_df["ynExactMatchFullText"] = None 
+    ontopop_df["retries"] = None # Retries
+    ontopop_df["errorType"] = None # Error type
 
     # Set datatypes
     ontopop_df["propertyValues"] = ontopop_df["propertyValues"].astype("str")

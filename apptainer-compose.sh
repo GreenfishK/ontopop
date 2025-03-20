@@ -37,6 +37,7 @@ function download () {
     $APPTAINER_IMG ${c_home}/src/ontopop/download_data.sh $dataset
 }
 
+# Does not work yet
 function download_contributors () {
 
     # Create directories
@@ -238,6 +239,7 @@ function visualize () {
     --writable-tmpfs \
     --bind src/ontopop/visualize.py:${c_home}/src/ontopop/visualize.py \
     --bind ${ONTOPOP_LOGS}/visualize:${c_logs}/visualize \
+    --bind ${ONTOPOP_DATA}/download:${c_data}/download\
     --bind ${ONTOPOP_DATA}/create_dataset:${c_data}/create_dataset\
     --bind ${ONTOPOP_DATA}/evaluate:${c_data}/evaluate\
     --bind ${ONTOPOP_DATA}/visualize:${c_data}/visualize\
