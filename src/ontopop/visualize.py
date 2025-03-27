@@ -69,8 +69,7 @@ from matplotlib.ticker import FuncFormatter
 import math
 from matplotlib.cm import ScalarMappable
 from collections import Counter
-from matplotlib.ticker import MaxNLocator
-
+from matplotlib.ticker import LogLocator, MaxNLocator, MultipleLocator, FixedLocator, FixedFormatter
 
 ##########################################################################################
 # Paths, Endpoints, Tokens and Environment Variables
@@ -160,7 +159,6 @@ def plot_template_properties(input_dataset_file_name, output_dataset_file_name, 
     # Get unique values and their counts
     unique_values, counts = np.unique(cntTemplateProperty_values, return_counts=True)
     label_margin = 1
-    print(unique_values, counts)
 
     # Create a figure with the desired size
     fig, ax = plt.subplots(figsize=fig_size)
@@ -266,6 +264,77 @@ def plot_template_usage(input_dataset_file_name, output_dataset_file_name, plot_
     # Save plot
     plt.tight_layout()
     plt.savefig(f"{plots_dir}/{plot_file_name}", format="eps")
+
+
+def plot_combined_template_usage(input_dataset_file_name, output_dataset_file_name, plot_file_name):
+    """
+    Combined plot of ORKG template usage and the number of properties per template.
+    """
+    logging.info(f"Creating plot: {plot_file_name}")
+
+    # Load dataset
+    templates_df = pd.read_csv(f"{create_dataset_dir}/{input_dataset_file_name}", sep=",")
+    logging.info(f"Loading dataset: {create_dataset_dir}/{input_dataset_file_name}")
+    
+    cnt_templates = templates_df['template'].count()
+    cnt_zero_usages = templates_df.loc[templates_df['cntTemplateInstances'] == 0, 'template'].count()
+    
+    # Sort by template instances
+    templates_df = templates_df.sort_values("cntTemplateInstances", ascending=False)
+    
+    # Calculate 10th and 90th percentiles
+    p10_index = int(0.1 * cnt_templates)
+    p90_index = int(0.9 * cnt_templates)
+    
+    # Create figure and axes
+    fig, ax1 = plt.subplots(figsize=fig_size)
+    ax2 = ax1.twinx()  # Secondary y-axis for number of properties
+    
+    # Plot template instances (log scale)
+    templates_df.plot(x='template', y='cntTemplateInstances', ax=ax1, 
+                      kind="line", legend=False, color="black")
+    
+    # Plot number of properties as a line on secondary axis (log)
+    templates_df.plot(x='template', y='cntTemplateProperty', ax=ax2, 
+                      kind="scatter", legend=False, color="black", s=2)
+    
+    # Format primary y-axis (log scale)
+    max_cnt = templates_df['cntTemplateInstances'].max()
+    max_power = math.floor(math.log10(max_cnt))
+    y_tick_positions = [10 ** i for i in range(0, max_power + 1)]
+    y_tick_positions.append(max_cnt)
+    ax1.set_yscale('log') 
+    ax1.yaxis.set_ticks(y_tick_positions)
+    ax1.yaxis.set_major_formatter(FuncFormatter(lambda value, _: f'{value:,.0f}'.replace(',', '.')))
+    
+    # Format secondary y-axis (log scale)
+    ax2.yaxis.set_label_text('Number of properties', fontsize=16, color='black')
+    ax2.tick_params(axis='y', colors='black')
+    cnt_template_property_unique = sorted(templates_df['cntTemplateProperty'].unique().tolist())
+    ax2.set_yscale('log')
+    ax2.yaxis.set_major_locator(FixedLocator(cnt_template_property_unique))
+    ax2.yaxis.set_major_formatter(FixedFormatter([str(i) for i in cnt_template_property_unique]))
+    ax2.set_ylim([min(cnt_template_property_unique) * 0.9, max(cnt_template_property_unique) * 1.1])
+
+    # X-axis formatting
+    x_tick_positions = [1, p10_index, cnt_templates - cnt_zero_usages, p90_index, cnt_templates]
+    x_tick_labels = [1, f"{p10_index} (10P)", cnt_templates - cnt_zero_usages, f"{p90_index} (90P)", cnt_templates]
+    ax1.set_xticks(x_tick_positions)
+    ax1.set_xticklabels(x_tick_labels, rotation=0)
+    ax1.xaxis.set_label_text('Template index', fontsize=16)
+    
+    # Primary y-axis label
+    ax1.yaxis.set_label_text('Number of template instances (log scale)', fontsize=16)
+    
+    # Remove top and right spines
+    ax1.spines["top"].set_visible(False)
+    ax2.spines["top"].set_visible(False)
+    ax1.spines["right"].set_visible(False)
+    
+    # Save plot
+    plt.tight_layout()
+    plt.savefig(f"{plots_dir}/{plot_file_name}", format="eps")
+
 
 
 def plot_template_utilization(input_dataset_file_name, contr_tmpl_dataset_file_name, output_dataset_file_name, plot_file_name):
@@ -967,6 +1036,12 @@ input_dataset_file_name="templates.csv"
 output_dataset_file_name=""
 plot_file_name="template_usage.eps"
 plot_template_usage(input_dataset_file_name, output_dataset_file_name, plot_file_name)
+
+# template usage and template properties
+input_dataset_file_name="templates.csv"
+output_dataset_file_name=""
+plot_file_name="template_usage_and_properties.eps"
+plot_combined_template_usage(input_dataset_file_name, output_dataset_file_name, plot_file_name)
 
 # template utilization
 input_dataset_file_name="templates.csv"
