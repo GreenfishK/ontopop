@@ -70,6 +70,7 @@ import math
 from matplotlib.cm import ScalarMappable
 from collections import Counter
 from matplotlib.ticker import LogLocator, MaxNLocator, MultipleLocator, FixedLocator, FixedFormatter
+from matplotlib.patches import FancyArrow
 
 ##########################################################################################
 # Paths, Endpoints, Tokens and Environment Variables
@@ -271,6 +272,7 @@ def plot_combined_template_usage(input_dataset_file_name, output_dataset_file_na
     Stacked bar plot of ORKG template usage where each bar represents the total number of instances
     for the corresponding property count, subdivided by the number of instances per template.
     """
+
     logging.info(f"Creating plot: {plot_file_name}")
 
     # Load dataset
@@ -278,71 +280,73 @@ def plot_combined_template_usage(input_dataset_file_name, output_dataset_file_na
     logging.info(f"Loading dataset: {create_dataset_dir}/{input_dataset_file_name}")
     
     # Group by property count and aggregate instances per template
-    grouped = templates_df.groupby('cntTemplateProperty')['cntTemplateInstances'].apply(list).reset_index()
+    grouped = templates_df.groupby('cntTemplateProperty').agg({
+        'cntTemplateInstances': list,
+        'templateLabel': lambda x: list(x)  # Collect template labels
+    }).reset_index()
     grouped['totalTemplateInstances'] = grouped['cntTemplateInstances'].apply(sum) 
     grouped.to_csv(f"{visualize_dir}/groupedTemplateInstances.csv")
 
     # Create figure
     fig, ax = plt.subplots(figsize=(24,13.25))
-    
+
     # Create bars with white fill and black borders
     bar_positions = grouped['cntTemplateProperty'].tolist()
     bar_heights = grouped['totalTemplateInstances'].tolist()
     
     bar_width = 0.8
-    ax.bar(bar_positions, bar_heights, color='white', edgecolor='black', linewidth=1, width=bar_width)
+    bars = ax.bar(bar_positions, bar_heights, color='white', edgecolor='black', linewidth=1, width=bar_width)
     
-    # Annotate bar counts
-    for i, (pos, count) in enumerate(zip(bar_positions, grouped['cntTemplateInstances'].apply(len))):
-        ax.text(pos, bar_heights[i] * 1.1, str(count), ha='center', fontsize=10)
+    # Draw downward arrows for bars with height > 10,000
+    for bar, pos, height in zip(bars, bar_positions, bar_heights):
+        if height > 10000:
+            ax.annotate('↓', xy=(pos, height * 1.05), fontsize=16, ha='center', color='black')
+            #bar.set_edgecolor('red')
 
     # Now divide each bar into subgroups
-    for i, (pos, height) in enumerate(zip(bar_positions, bar_heights)):
-        template_instances = grouped['cntTemplateInstances'][i]
-        print(f"Bar Index: {i}")
-        print(f"Template instances: {template_instances}")
-        print(f"Height: {height}")
-        
+    for i, (pos, height) in enumerate(zip(bar_positions, bar_heights)):        
         # Sort the template instances in descending order to start from the largest
+        template_instances = grouped['cntTemplateInstances'][i]
         template_instances_sorted = sorted(template_instances, reverse=True)
-        print(f"Template instances sorted: {template_instances_sorted}")
 
         # Normalize subgroups' height relative to the total bar height
         total_instances = sum(template_instances_sorted)
-        start_position = 0  # Start from the bottom of the bar
         cumulative_instances = 0
         # Draw horizontal lines dividing the subgroups
         for j, instances in enumerate(template_instances_sorted):  # Exclude the last one to avoid extra line
-            print(f"\tStart position: {start_position}")
-
+            # Calculate position 
             proportion = cumulative_instances / total_instances  
-            print(f"\tcumulative instances: {cumulative_instances}")
-            print(f"\ttotal_instances: {total_instances}")
-            print(f"\tproportion: {proportion}")
-
             y_position = proportion * cumulative_instances  # Calculate the position of the line
-            print(f"\ty-position: {y_position}")
             
             # Draw the horizontal line
             ax.hlines(y_position, pos - bar_width/2, pos + bar_width/2, color='black', linewidth=1)
             
             # Update the start position for the next subgroup
-            #start_position += y_position
             cumulative_instances += instances
 
-        print("\n\n\n")
+    # Annotate bars with one template
+    for i, (pos, count) in enumerate(zip(bar_positions, grouped['cntTemplateInstances'].apply(len))):
+        if count == 1:
+            template_name = grouped['templateLabel'][i][0]  # Extract the single template label
+            ax.text(pos, bar_heights[i] * 1.1, template_name, ha='center', fontsize=12, color='black', rotation=90)
     
-    # Axis settings
+    # Draw right-arrow pointing to bar 0
+    arrow = FancyArrow(bar_positions[0] - 2, bar_heights[0], 1, 0, head_width=500, head_length=0.3, fc='black', ec='black')
+    ax.add_patch(arrow)
+    
+    # Tick labels
     ax.set_xticks(bar_positions)
-    ax.set_xticklabels(grouped['cntTemplateProperty'], rotation=0)
+    tick_labels_second_level = [str(len(grouped['cntTemplateInstances'][i])) for i in range(len(bar_positions))]
+    for i, (pos, secondary_label) in enumerate(zip(bar_positions, tick_labels_second_level)):
+        ax.text(pos, -0.03, secondary_label, ha='center', va='top', rotation=90, fontsize=10, transform=ax.get_xaxis_transform())
+
+    # Axes scales and labels
     ax.set_yscale('log')
     ax.set_xlim(-2, np.max(bar_positions) + 2)
-    
-    # Axis labels
-    ax.set_xlabel("Number of properties (linear scale)", fontsize=16)
+    ax.set_xlabel("Number of properties (first row) and number of blocks/templates (second row)", fontsize=16, labelpad=24)
     ax.set_ylabel("Total number of template instances (log scale)", fontsize=16)
 
-    # Ticks
+    # Tick formats
     ax.xaxis.set_major_formatter(FuncFormatter(lambda value, _: f'{value:,.0f}'.replace(',', '.')))   
     ax.yaxis.set_major_formatter(FuncFormatter(lambda value, _: f'{value:,.0f}'.replace(',', '.')))
 
@@ -565,11 +569,20 @@ def plot_similarities(input_dataset_file_names, output_dataset_file_name, plot_f
 
     logging.info(f'Global average semantic similarity over properties with support >= 50: {ontopop_df_viz_top["semantic_similarity_mean"].mean()}')
 
+    # Calculate snippet matches to full-text matches ratio
+    ontopop_df_viz_top["match_ratio"] = np.round(ontopop_df_viz_top["snippets_matches"] / ontopop_df_viz_top["full_text_matches"], 2)
+    
     # Rename model label
     ontopop_df_viz_top.loc[ontopop_df_viz_top["model"]=="Meta", "model"] = "LLama3"
 
+    # Temporary #######################################################
+    # Load dataset
+    ontopop_df_viz_top = pd.read_csv(f"{visualize_dir}/{output_dataset_file_name}", escapechar='\\')    
+    ontopop_df_viz_top["match_ratio"] = np.round(ontopop_df_viz_top["snippets_matches"] / ontopop_df_viz_top["full_text_matches"], 2)
+    ####################################################################
+
     # Save dataset
-    ontopop_df_viz_top.to_csv(f"{visualize_dir}/{output_dataset_file_name}", escapechar='\\')
+    #ontopop_df_viz_top.to_csv(f"{visualize_dir}/{output_dataset_file_name}", escapechar='\\')
 
     # Plots
     fig, axs = plt.subplots(1,2,figsize=fig_size)
@@ -602,8 +615,10 @@ def plot_similarities(input_dataset_file_names, output_dataset_file_name, plot_f
         axs[0].text(0.5 + 2*column_margin, i, v, va='center', ha="right",fontsize=10) if i%3 == 1 else None
     for i, v in enumerate(similarities_df["snippets_matches"].values):
         axs[0].text(0.5 + 3*column_margin, i, v, va='center', ha="right",fontsize=10) if i%3 == 1 else None
+    for i, v in enumerate(similarities_df["match_ratio"].values):
+        axs[0].text(0.5 + 4*column_margin, i, v, va='center', ha="right",fontsize=10) if i%3 == 1 else None
     for i, v in enumerate(similarities_df["avgTokenCount"].values):
-        axs[0].text(0.5 + 4*column_margin, i, v, va='center', ha="right",fontsize=10)
+        axs[0].text(0.5 + 5*column_margin, i, v, va='center', ha="right",fontsize=10)
 
     # Ticks
     axs[0].yaxis.set_ticks(y_ticks[1::3])
@@ -613,6 +628,7 @@ def plot_similarities(input_dataset_file_names, output_dataset_file_name, plot_f
     support_prop_header = axs[0].text(0,0, "Support (properties)", fontsize=12, rotation=45)
     full_text_matches = axs[0].text(0,0, "Full-text matches", fontsize=12, rotation=45)
     snippets_matches = axs[0].text(0,0, "Snippets matches", fontsize=12, rotation=45)
+    match_ratio = axs[0].text(0,0, "Match Ratio", fontsize=12, rotation=45)
     tokenCnt_header = axs[0].text(0,0, "Average \ngenerated tokens", fontsize=12, rotation=45)
     axs[0].yaxis.set_label_text("Property labels", fontsize=16)
 
@@ -639,7 +655,8 @@ def plot_similarities(input_dataset_file_names, output_dataset_file_name, plot_f
     support_prop_header.set_position((x0 + header_margin + header_offset,len(similarities_df[["support_properties"]])))
     full_text_matches.set_position((x0 + 2*header_margin + header_offset,len(similarities_df[["support_properties"]])))
     snippets_matches.set_position((x0 + 3*header_margin + header_offset,len(similarities_df[["support_properties"]])))
-    tokenCnt_header.set_position((x0 + 4*header_margin + header_offset,len(similarities_df[["support_properties"]])))
+    match_ratio.set_position((x0 + 4*header_margin + header_offset,len(similarities_df[["support_properties"]])))
+    tokenCnt_header.set_position((x0 + 5*header_margin + header_offset,len(similarities_df[["support_properties"]])))
 
     # Subplot 2
     similarities_df["NoValuesGenerated"] = similarities_df["NoValuesGenerated"] / similarities_df["support_properties"] 
@@ -702,8 +719,9 @@ def plot_similarities(input_dataset_file_names, output_dataset_file_name, plot_f
     axs[1].get_legend().remove()
 
     # Position
-    axs[1].set_position([x1 + 0.13, y0, 0.6, y1-y0])
+    axs[1].set_position([x1 + 0.16, y0, 0.6, y1-y0])
     axs[1].set_ylim(y_min, y_max)
+    axs[1].set_xlim(0, 1.05)
 
     # Scale
     axs[1].xaxis.set_view_interval(0, 1)
@@ -1072,8 +1090,10 @@ plot_file_name="template_utilization.eps"
 plot_template_utilization(input_dataset_file_name, contr_tmpl_dataset_file_name, output_dataset_file_name, plot_file_name)
 
 # llm:similarities
-output_dataset_file_name = f"ontopop_similarities_{pdf_parser}_{shots}.csv"
-plot_file_name = f"ontopop_similarities_{pdf_parser}_{shots}.eps"
+output_dataset_file_name = f"ontopop_similarities_{pdf_parser}_{shots}_20241126.csv"
+plot_file_name = f"ontopop_similarities_{pdf_parser}_{shots}_20241126.eps"
+#output_dataset_file_name = f"ontopop_similarities_{pdf_parser}_{shots}.csv"
+#plot_file_name = f"ontopop_similarities_{pdf_parser}_{shots}.eps"
 plot_similarities(input_dataset_file_names, output_dataset_file_name, plot_file_name)
 
 # llm:hallucination
