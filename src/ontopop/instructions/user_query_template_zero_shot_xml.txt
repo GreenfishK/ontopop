@@ -1,0 +1,26 @@
+What is/are the property value(s) matching the below information?
+
+Property name: {property_name}
+
+Property description: {property_description}
+
+Contribution context: {contribution}
+
+Reply in the following XML format. Your answer must only contain one <PropertyValueAssignments> tag: 
+
+<PropertyValueAssignments>   
+    <propertyName>propertyName</propertyName>
+    <propertyValues>propertyValue</propertyValues>
+</PropertyValueAssignments>
+
+Here is an example of a reply with one property value:
+<PropertyValueAssignments>
+    <propertyName>research problem</propertyName>
+    <propertyValues>protein-protein interaction annotation extraction</propertyValues>
+</PropertyValueAssignments>.
+
+Here is an example of a reply with multiple property values. They must be separated by a pipe:
+<PropertyValueAssignments>
+    <propertyName>data source</propertyName>
+    <propertyValues>PubMed | Journal of Biological Chemistry (JBC)</propertyValues>
+</PropertyValueAssignments>.

@@ -1,59 +1,3 @@
-##########################################################################
-# Questions I want to answer/Information i want to show
-##########################################################################
-# Plot 1: plot_similarities()
-# What properties with over 50 instances excert the highest avg max semantic similarity, 
-# i.e. what properties get good suggestions from the RAG? (done)
-
-# Plot 2: plot_hallucination()
-# How many generated property values exactly match the n-grams in the snippets? 
-# How many generated property values are found in the full-text?
-# line plot: subplot 1:
-# y-axis:
-# * exact_match_snippets
-# x-axis:
-# * property index
-# filters:
-# * mismatch_rate > 10%
-# line plot: subplot 2:
-# y-axis:
-# * exact_match_full_text
-# x-axis:
-# * property index
-# filters:
-# * > 90th percentile
-
-# Plot 3
-# Retriever evaluation
-# How many of the CPVs are contained within the full text
-# * How many thereof contained within the snippets
-
-# Plot 4
-# How many crowdsourced and generated property value pairs exactly match, but are not found in the snippets?
-
-# Plot 5
-# Errors
-# Note: Already covered in "Plot 1"? Still necessary?
-# Correlation between number of property instances (x-axis) and number of errors (y-axis)
-# How many XML parsing errors are there (XMLParsing)
-# How many answers were delievered in the correct format (WrongAnswerFormat)?
-# How many property values could not be assigned (NoValuesGenerated)?
-
-# Plot(?): Confusion matrix
-# True positive: generated property values that match the CPVs and are found in the snippets
-# False positive: generated property values that match the CPVs and are not found in the snippets
-# True negative: generated property values that do not match the CPVs and are not found in the snippets
-# False negative: generated property values that do not match the CPVs and are found in the snippets
-
-##########################################################################
-# Considerations
-##########################################################################
-# Experiment variables:
-# * LLMs (one with 8B and one with over 200B parameters)
-# * PDF loaders (Tika, PyPDFLoader, ...)
-# * Instructions 
-
-
 ##########################################################################################
 # Imports, diretories setup and tokens
 ##########################################################################################
@@ -71,6 +15,8 @@ from matplotlib.cm import ScalarMappable
 from collections import Counter
 from matplotlib.ticker import LogLocator, MaxNLocator, MultipleLocator, FixedLocator, FixedFormatter
 from matplotlib.patches import FancyArrow
+from matplotlib.patches import Rectangle
+import matplotlib.patches as patches
 
 ##########################################################################################
 # Paths, Endpoints, Tokens and Environment Variables
@@ -303,7 +249,7 @@ def plot_combined_template_usage(input_dataset_file_name, output_dataset_file_na
             ax.annotate('↓', xy=(pos, height * 1.05), fontsize=16, ha='center', color='black')
             #bar.set_edgecolor('red')
 
-    # Now divide each bar into subgroups
+    # Divide each bar into subgroups
     for i, (pos, height) in enumerate(zip(bar_positions, bar_heights)):        
         # Sort the template instances in descending order to start from the largest
         template_instances = grouped['cntTemplateInstances'][i]
@@ -336,14 +282,14 @@ def plot_combined_template_usage(input_dataset_file_name, output_dataset_file_na
     
     # Tick labels
     ax.set_xticks(bar_positions)
-    tick_labels_second_level = [str(len(grouped['cntTemplateInstances'][i])) for i in range(len(bar_positions))]
-    for i, (pos, secondary_label) in enumerate(zip(bar_positions, tick_labels_second_level)):
-        ax.text(pos, -0.03, secondary_label, ha='center', va='top', rotation=90, fontsize=10, transform=ax.get_xaxis_transform())
+    #tick_labels_second_level = [str(len(grouped['cntTemplateInstances'][i])) for i in range(len(bar_positions))]
+    #for i, (pos, secondary_label) in enumerate(zip(bar_positions, tick_labels_second_level)):
+    #    ax.text(pos, -0.03, secondary_label, ha='center', va='top', rotation=90, fontsize=10, transform=ax.get_xaxis_transform())
 
     # Axes scales and labels
     ax.set_yscale('log')
     ax.set_xlim(-2, np.max(bar_positions) + 2)
-    ax.set_xlabel("Number of properties (first row) and number of blocks/templates (second row)", fontsize=16, labelpad=24)
+    ax.set_xlabel("Number of properties", fontsize=16, labelpad=24)
     ax.set_ylabel("Total number of template instances (log scale)", fontsize=16)
 
     # Tick formats
@@ -508,6 +454,37 @@ def plot_template_utilization(input_dataset_file_name, contr_tmpl_dataset_file_n
 
     ax1.plot([second_bar_center_x, ax1_title_x], [second_bar_center_y, ax1_title_y-2], 
              color='black', lw=1.5)
+    
+    # Draw the canvas to populate the renderer
+    fig.canvas.draw()
+    renderer = fig.canvas.get_renderer()
+
+    # Get tight bounding box in figure coordinates
+    tight_bbox = ax2.get_tightbbox(renderer).transformed(fig.transFigure.inverted())
+
+    # Define padding 
+    padding_x = 0.01
+    padding_y = 0.02
+
+    # Expand the bbox
+    x0 = tight_bbox.x0 - padding_x
+    y0 = tight_bbox.y0 - padding_y
+    width = tight_bbox.width + 2 * padding_x
+    height = tight_bbox.height + 2 * padding_y
+
+    # Draw the padded rectangle
+    rect = patches.Rectangle(
+        (x0, y0),
+        width,
+        height,
+        linewidth=2,
+        edgecolor='black',
+        facecolor='none',
+        transform=fig.transFigure,
+        zorder=1000
+    )
+
+    fig.patches.append(rect)
 
     # Save plot
     plt.savefig(f"{plots_dir}/{plot_file_name}", format="eps")

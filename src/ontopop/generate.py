@@ -13,6 +13,11 @@ from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
 import torch
 import xml.etree.ElementTree as ET
 import re
+from pydantic import BaseModel
+from typing import Union
+from lmformatenforcer import JsonSchemaParser
+from lmformatenforcer.integrations.transformers import build_transformers_prefix_allowed_tokens_fn
+import json
 
 ##########################################################################################
 # Paths, Endpoints, Tokens and Environment Variables
@@ -50,6 +55,13 @@ logging.basicConfig(
     datefmt="%F %A %T",
     level=logging.INFO
     )
+
+##########################################################################################
+# Classes
+##########################################################################################
+class PropertyValueAssignment(BaseModel):
+    propertyName: str
+    propertyValues: list[str]  # support both single and multiple values
 
 
 ##########################################################################################
@@ -161,7 +173,8 @@ def predict_property(row, embeddings, llm, tokenizer, total_rows, instruction_te
     instruction = instruction_template.format(snippets=snippets)
     user_query = user_query_template.format(property_name=property_name, 
                                             property_description=property_description, 
-                                            contribution=contr)
+                                            contribution=contr,
+                                            schema_json=PropertyValueAssignment.model_json_schema())
     
     if llm_short == "Mistral-7B-Instruct-v0.3":
         messages = [
@@ -186,22 +199,23 @@ def predict_property(row, embeddings, llm, tokenizer, total_rows, instruction_te
         row["ynAnswerExtractionSuccessful"] = "no"  
 
         # Save prompts
-        prompt = tokenizer.apply_chat_template(messages,tokenize=False)
+        prompt = tokenizer.apply_chat_template(messages, tokenize=False)
         with open(f"{prompts_dir}/{pdf_parser}/{llm_short}/{shots}/prompt_{row_index}.txt", "w") as prompt_file:
             prompt_file.write(f"{prompt} \n\n!!{error}!!")
 
     while retry_count < retry_limit and not success:
         # Encode messages
-        input_ids = tokenizer.apply_chat_template(
-            messages,
-            add_generation_prompt=True,
-            return_tensors="pt"
-        ).to(llm.device)
-            
+        input_ids = tokenizer.apply_chat_template(messages, add_generation_prompt=True, return_tensors="pt").to(llm.device)
+
+        # Create parsing function
+        parser = JsonSchemaParser(PropertyValueAssignment.model_json_schema())
+        prefix_function = build_transformers_prefix_allowed_tokens_fn(tokenizer, parser)
+
         # Send prompt including top k text splits (context) and question to LLM 
         prompt_length = input_ids.shape[-1]
         logging.info(f"Send prompt with length {prompt_length} including top k text splits (context) and question to LLM. \
         The eos_token_id is: {tokenizer.eos_token_id}. the pad_token_id is: {tokenizer.pad_token_id}")
+        
         try:
             outputs = llm.generate(
                 input_ids,
@@ -209,11 +223,11 @@ def predict_property(row, embeddings, llm, tokenizer, total_rows, instruction_te
                 eos_token_id=tokenizer.eos_token_id,
                 pad_token_id=tokenizer.pad_token_id, 
                 # The settings below help the model generate text that is more deterministic 
-                # and less exploratory, 
-                # which is beneficial for tasks requiring high precision.
+                # and less exploratory, which is beneficial for tasks requiring high precision.
                 do_sample=True, 
-                temperature=0.1, # the highest probable next token is always picked
+                temperature=0.1, # highly predictable, little randomness
                 top_p=0.2, # considers only tokens that cumulatively add up to 20% of the probability
+                prefix_allowed_tokens_fn=prefix_function,
             )
             response = outputs[0][input_ids.shape[-1]:]
             decoded_response = tokenizer.decode(response, skip_special_tokens=True)
@@ -223,42 +237,30 @@ def predict_property(row, embeddings, llm, tokenizer, total_rows, instruction_te
             log_error_and_save_prompt("DeviceSideAssertionError_Generation")
 
             return row
-
+        
         # Parse answer
-        logging.info("Parse generated XML tree from the model's answer.")
-        pattern = r'<PropertyValueAssignments>.*?</PropertyValueAssignments>'
-        xml_answer = re.search(pattern, decoded_response, re.DOTALL)
-
-        if not xml_answer:
-            logging.info(f"Could not extract XML data from prompt response.")
-            log_error_and_save_prompt("WrongAnswerFormat")
-            return row
-
+        logging.info("Parse generated JSON tree from the model's answer.")
         try:
-            # Parse XML string using ElementTree
-            root = ET.fromstring(xml_answer.group(0))
-            property_values_extracted = root[1].text
-            row['ynAnswerExtractionSuccessful'] = 'yes'  
-        except ET.ParseError as e:
-            logging.error(f"XML parsing error: {e}")
-            row["errorType"] = "XMLParsing"
-            log_error_and_save_prompt("XMLParsing")
+            decoded_response_json = json.loads(decoded_response)
+            property_values_extracted = decoded_response_json['propertyValues']
+            row['ynAnswerExtractionSuccessful'] = 'yes'
+        except Exception as e:
+            logging.error(f"Parsing error: {e}")
+            row["errorType"] = "JSONParsing"
+            log_error_and_save_prompt("JSONParsing")
             return row
-
+    
         # Verify that propertyValuePrediction is in the snippets and the full text
         logging.info("Verification that generated property values are in the text snippets.")
         unknown_answer_pattern="(n\/a|na|no exact match|none|null|no result|not( explicitly)?)?( found| provided| specified| available| applicable| mentioned)?( in the( given| provided)?( context| snippets))?(\.)?"
-        if not property_values_extracted or re.fullmatch(unknown_answer_pattern, property_values_extracted.lower()):
+        if not property_values_extracted or (len(property_values_extracted) == 1 and re.fullmatch(unknown_answer_pattern, property_values_extracted[0].lower())):
             row["errorType"] = "NoValuesGenerated"
             log_error_and_save_prompt("NoValuesGenerated")
             return row
-        
-        # Check if generated property value is contained in the snippets
-        property_values_extracted_list_raw = property_values_extracted.split("|")
-        property_values_extracted_list = [v.strip() for v in property_values_extracted_list_raw]
-        missmatches = []
 
-        for value in property_values_extracted_list:
+        # Count missmatches
+        missmatches = []
+        for value in property_values_extracted:
             if value.lower() not in snippets_lower:
                 missmatches.append(value)
             else:
@@ -276,10 +278,10 @@ def predict_property(row, embeddings, llm, tokenizer, total_rows, instruction_te
 
     # Assign the generated property values to the dataframe
     logging.info(f"Generated property-value pair: {property_name}: {property_values_extracted}")
-    row['propertyValuePrediction'] = property_values_extracted
+    row['propertyValuePrediction'] = "|".join(property_values_extracted)
 
     # Check if extracted property values are contained in the full-text
-    row["ynExactMatchFullText"] = "yes" if all(value.lower() in full_text_lower for value in property_values_extracted_list) else "no" 
+    row["ynExactMatchFullText"] = "yes" if all(value.lower() in full_text_lower for value in property_values_extracted) else "no" 
 
     row["retries"] = retry_count
     

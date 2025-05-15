@@ -37,3 +37,5 @@ sentencepiece==0.2.0
 beautifulsoup4
 selenium
 webdriver-manager
+lm-format-enforcer==0.10.11
+pydantic==2.11.4

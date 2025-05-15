@@ -1,11 +1,10 @@
 #!/bin/bash
 #SBATCH --nodes=1                   # select number of nodes
 #SBATCH --ntasks-per-node=1        # select number of tasks per node
+#SBATCH --gres=gpu:a100:1	   # select gpu
+#SBATCH --partition=GPU-a100        # select a partition i.e. "GPU-a100"
 #SBATCH --time=2-0            # request 1 day of wall clock time
 #SBATCH --mem=80GB                   # memory size required per node
-
-#!SBATCH --gres=gpu:a100:1	   # select gpu
-#!SBATCH --partition=GPU-a100        # select a partition i.e. "GPU-a100"
 ####################################################################################
 # Notes
 ####################################################################################

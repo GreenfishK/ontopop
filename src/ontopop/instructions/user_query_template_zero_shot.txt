@@ -6,21 +6,17 @@ Property description: {property_description}
 
 Contribution context: {contribution}
 
-Reply in the following XML format. Your answer must only contain one <PropertyValueAssignments> tag: 
-
-<PropertyValueAssignments>   
-    <propertyName>propertyName</propertyName>
-    <propertyValues>propertyValue</propertyValues>
-</PropertyValueAssignments>
+Reply in the following JSON format only. 
+{schema_json}
 
 Here is an example of a reply with one property value:
-<PropertyValueAssignments>
-    <propertyName>research problem</propertyName>
-    <propertyValues>protein-protein interaction annotation extraction</propertyValues>
-</PropertyValueAssignments>.
+{{
+  "propertyName": "research problem",
+  "propertyValues": ["protein-protein interaction annotation extraction"]
+}}
 
-Here is an example of a reply with multiple property values. They must be separated by a pipe:
-<PropertyValueAssignments>
-    <propertyName>data source</propertyName>
-    <propertyValues>PubMed | Journal of Biological Chemistry (JBC)</propertyValues>
-</PropertyValueAssignments>.
+Here is an example of a reply with multiple property values:
+{{
+  "propertyName": "data source",
+  "propertyValues": ["PubMed", "Journal of Biological Chemistry (JBC)"]
+}}
