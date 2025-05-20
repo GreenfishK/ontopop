@@ -1,5 +1,3 @@
-# ontopop
-A repository for experimenting with RAG-based automatic populaiton of the ORKG.
 # Pipeline
 Ontopop is a repository for experimenting with RAG-based scientific information extraction. Our current experiment includes the following steps:
 * Download: Downloads a snapshot from the ORKG. 
