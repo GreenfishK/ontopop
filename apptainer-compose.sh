@@ -20,6 +20,8 @@
 . .env
 
 function download () {
+    # The dataset must be an enum that is defined in the src/ontopop/download_data.sh script
+    # Currently, the only dataset available is "orkg"
     dataset=$1
 
     # Create directories
